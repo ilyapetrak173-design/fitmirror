@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitMirror — примерка</title>
+  <style>
+    :root { --lavender: #B399D4; --teal: #2A9D8F; --offwhite: #FDF9F3; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--offwhite);
+      color: #1a1a1a;
+      padding: 20px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .container { max-width: 500px; margin: 0 auto; }
+    h1 { font-size: 24px; font-weight: 700; text-align: center; margin: 20px 0 30px; }
+    .avatar-preview { background: white; border-radius: 24px; height: 360px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    .avatar-placeholder { color: #888; font-size: 16px; text-align: center; padding: 20px; }
+    canvas { max-width: 100%; max-height: 100%; display: block; }
+    .face-upload { margin-bottom: 24px; }
+    .face-upload label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .face-preview-container { display: flex; align-items: center; gap: 12px; }
+    .face-preview { width: 64px; height: 64px; border-radius: 50%; background: #eee; object-fit: cover; border: 2px solid var(--lavender); display: none; }
+    .face-upload-btn { background: white; border: 1px solid #ddd; border-radius: 12px; padding: 10px 16px; font-size: 14px; color: #555; cursor: pointer; flex: 1; text-align: left; }
+    .measurements { background: white; border-radius: 24px; padding: 20px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    .measurements h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .measurement-group { margin-bottom: 14px; }
+    .measurement-group label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+    .measurement-group input, .measurement-group select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 12px; font-size: 15px; }
+    .action-btn { width: 100%; padding: 14px; background: var(--teal); color: white; border: none; border-radius: 16px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(42, 157, 143, 0.3); }
+    .notice { font-size: 12px; line-height: 1.5; padding: 12px; border-radius: 12px; margin-bottom: 20px; }
+    .privacy-notice { background: #e8f4fc; color: #0d4a6b; }
+    .accuracy-notice { background: #ffebee; color: #c62828; }
+    #userPhoto { display: none; }
+    #resultContainer { margin-top: 20px; }
+    .warning { background: #fff4e6; padding: 16px; border-radius: 12px; margin: 20px 0; }
+    footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size:12px; text-align:center; }
+    #cookie-notice { position:fixed; bottom:0; left:0; right:0; background:#333; color:white; padding:10px; text-align:center; font-size:12px; display:none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>FitMirror — примерка</h1>
+
+    <div class="avatar-preview">
+      <div class="avatar-placeholder" id="avatarPlaceholder">
+        Загрузите фото и введите параметры
+      </div>
+      <canvas id="avatarCanvas" width="320" height="320"></canvas>
+    </div>
+
+    <div class="notice privacy-notice">
+      🔒 Ваше фото обрабатывается только в браузере и удаляется через 30 секунд.
+    </div>
+
+    <div class="face-upload">
+      <label>Ваше фото (для лица)</label>
+      <div class="face-preview-container">
+        <img id="facePreview" class="face-preview">
+        <label class="face-upload-btn" for="userPhoto">
+          Выбрать фото
+        </label>
+      </div>
+      <input type="file" id="userPhoto" accept="image/*">
+    </div>
+
+    <div class="measurements">
+      <h2>Параметры тела</h2>
+      
+      <div class="measurement-group">
+        <label>Рост (см)</label>
+        <input type="number" id="height" placeholder="170" min="100" max="250">
+      </div>
+      
+      <div class="measurement-group">
+        <label>Обхват груди (см)</label>
+        <input type="number" id="chest" placeholder="86">
+      </div>
+      
+      <div class="measurement-group">
+        <label>Обхват талии (см)</label>
+        <input type="number" id="waist" placeholder="70">
+      </div>
+      
+      <div class="measurement-group">
+        <label>Обхват бёдер (см)</label>
+        <input type="number" id="hips" placeholder="92">
+      </div>
+      
+      <div class="measurement-group">
+        <label>Вес (кг)</label>
+        <input type="number" id="weight" placeholder="60">
+      </div>
+
+      <div class="measurement-group" id="sizeSelector" style="display:none;">
+        <label>Выберите размер</label>
+        <select id="selectedSize"></select>
+      </div>
+
+      <div class="notice accuracy-notice">
+        ⚠️ Точность примерки зависит от правильности введённых параметров.
+      </div>
+
+      <div class="notice privacy-notice">
+        <label>
+          <input type="checkbox" id="photoConsent" required> 
+          Я согласен(а) на обработку фото в целях персонализированной примерки.
+        </label>
+      </div>
+    </div>
+
+    <button class="action-btn" onclick="renderAvatar()">
+      Посмотреть, как сядет
+    </button>
+
+    <button class="action-btn" onclick="showStylistAdvice()" style="background:var(--lavender);">
+      💬 Рекомендации стилиста для вас
+    </button>
+
+    <div id="stylistAdvice" style="display:none; margin-top:25px; padding:20px; background:#f8f6ff; border-radius:20px;"></div>
+    <div id="resultContainer"></div>
+  </div>
+
+  <footer>
+    <a href="/public-offer" target="_blank">Публичная оферта</a> • 
+    <a href="/privacy" target="_blank">Политика конфиденциальности</a> • 
+    Контакт: [fitmirror@mail.ru]
+    <div style="margin-top:10px; font-size:11px;">
+      ИП: [Петрак Вероника Робертовна] | ИНН: [732593790581] 
+    </div>
+  </footer>
+
+  <div id="cookie-notice">
+    Мы используем файлы cookie для работы сервиса. 
+    <a href="/privacy" style="color:#4da6ff;">Подробнее</a>
+    <button onclick="document.getElementById('cookie-notice').style.display='none'; localStorage.setItem('cookiesAccepted','1')">Принять</button>
+  </div>
+
+  <script>
+    // Cookie notice
+    if (!localStorage.getItem('cookiesAccepted')) {
+      document.getElementById('cookie-notice').style.display = 'block';
+    }
+
+    let userPhoto = null;
+    const canvas = document.getElementById('avatarCanvas');
+    const ctx = canvas.getContext('2d');
+    const placeholder = document.getElementById('avatarPlaceholder');
+    const facePreview = document.getElementById('facePreview');
+
+    document.getElementById('userPhoto').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          userPhoto = new Image();
+          userPhoto.src = event.target.result;
+          facePreview.src = event.target.result;
+          facePreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function analyzePhotoForStylist() {
+      if (!userPhoto) return null;
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = userPhoto.width;
+      tempCanvas.height = userPhoto.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(userPhoto, 0, 0);
+      const centerX = Math.floor(tempCanvas.width * 0.5);
+      const centerY = Math.floor(tempCanvas.height * 0.4);
+      const pixel = tempCtx.getImageData(centerX, centerY, 1, 1).data;
+      const r = pixel[0], g = pixel[1], b = pixel[2];
+      const avg = (r + g + b) / 3;
+      const redness = r - (g + b) / 2;
+      let colorType = 'неопределённый';
+      if (avg > 180) colorType = 'летний';
+      else if (avg < 80) colorType = 'зимний';
+      else if (redness > 20) colorType = 'осенний';
+      else colorType = 'весенний';
+      return {
+        color_type: colorType,
+        eye_color: avg < 100 ? 'тёмные' : 'светлые',
+        hair_color: avg < 120 && redness > 10 ? 'рыжие' : avg < 150 ? 'тёмные' : 'светлые',
+        skin_tone: avg > 180 ? 'светлая' : avg < 80 ? 'тёмная' : 'средняя'
+      };
+    }
+
+    function drawAvatarWithClothing(height, chest, waist, hips, productSize) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scale = height / 170;
+      const centerX = canvas.width / 2;
+      ctx.fillStyle = '#FFD1DC';
+      ctx.beginPath();
+      ctx.arc(centerX, 50, 40 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      if (userPhoto) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, 50, 38 * scale, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(userPhoto, centerX - 38 * scale, 50 - 38 * scale, 76 * scale, 76 * scale);
+        ctx.restore();
+      }
+      if (productSize) {
+        const chestFit = Math.min(chest, productSize.chest);
+        const waistFit = Math.min(waist, productSize.waist);
+        const hipsFit = Math.min(hips, productSize.hips);
+        const clothingChest = (chestFit * 0.8) * scale;
+        const clothingWaist = (waistFit * 0.9) * scale;
+        const clothingHips = (hipsFit * 0.85) * scale;
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        gradient.addColorStop(0, '#8e69c2');
+        gradient.addColorStop(0.5, '#6a5acd');
+        gradient.addColorStop(1, '#8e69c2');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(centerX - clothingChest/2, 80);
+        if (chest > productSize.chest) {
+          ctx.lineTo(centerX - clothingWaist/2, 160);
+          ctx.lineTo(centerX - clothingHips/2, 240);
+        } else {
+          ctx.bezierCurveTo(centerX - clothingWaist/2 - 5, 160, centerX - clothingHips/2 - 8, 240, centerX - clothingHips/2, 240);
+        }
+        ctx.lineTo(centerX + clothingHips/2, 240);
+        if (chest > productSize.chest) {
+          ctx.lineTo(centerX + clothingWaist/2, 160);
+        } else {
+          ctx.bezierCurveTo(centerX + clothingHips/2 + 8, 240, centerX + clothingWaist/2 + 5, 160, centerX + clothingWaist/2, 160);
+        }
+        ctx.lineTo(centerX + clothingChest/2, 80);
+        ctx.closePath();
+        ctx.fill();
+        if (chest > productSize.chest || waist > productSize.waist || hips > productSize.hips) {
+          ctx.fillStyle = '#ff4d4d';
+          ctx.font = '14px Arial';
+          ctx.fillText('❗ Тесно', centerX - 30, 280);
+        }
+      } else {
+        const bodyW = (chest * 0.8) * scale;
+        const waistW = (waist * 0.9) * scale;
+        const hipsW = (hips * 0.85) * scale;
+        ctx.fillStyle = '#d0d0d0';
+        ctx.beginPath();
+        ctx.moveTo(centerX - bodyW/2, 80);
+        ctx.lineTo(centerX - waistW/2, 160);
+        ctx.lineTo(centerX - hipsW/2, 240);
+        ctx.lineTo(centerX + hipsW/2, 240);
+        ctx.lineTo(centerX + waistW/2, 160);
+        ctx.lineTo(centerX + bodyW/2, 80);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get('item');
+    let productData = null;
+
+    if (itemId) {
+      fetch(`/api/item/${itemId}`)
+        .then(res => res.json())
+        .then(item => {
+          productData = item;
+          if (item.size_table && Object.keys(item.size_table).length > 0) {
+            const select = document.getElementById('selectedSize');
+            Object.keys(item.size_table).forEach(size => {
+              const opt = document.createElement('option');
+              opt.value = size;
+              opt.textContent = size;
+              select.appendChild(opt);
+            });
+            document.getElementById('sizeSelector').style.display = 'block';
+          }
+        });
+    }
+
+    function renderAvatar() {
+      if (!document.getElementById('photoConsent').checked) {
+        alert('Подтвердите согласие на обработку фото');
+        return;
+      }
+      const height = parseFloat(document.getElementById('height').value) || 170;
+      const chest = parseFloat(document.getElementById('chest').value) || 86;
+      const waist = parseFloat(document.getElementById('waist').value) || 68;
+      const hips = parseFloat(document.getElementById('hips').value) || 92;
+      const selectedSize = document.getElementById('selectedSize').value || null;
+      const resultContainer = document.getElementById('resultContainer');
+      resultContainer.innerHTML = '';
+      placeholder.style.display = 'none';
+      canvas.style.display = 'block';
+
+      if (productData && productData.size_table && selectedSize) {
+        const sizeData = productData.size_table[selectedSize];
+        const issues = [];
+        if (chest > sizeData.chest + 4) issues.push('груди');
+        if (waist > sizeData.waist + 4) issues.push('талии');
+        if (hips > sizeData.hips + 4) issues.push('бёдер');
+        if (issues.length > 0) {
+          const sizes = Object.keys(productData.size_table).sort();
+          const currentIndex = sizes.indexOf(selectedSize);
+          const nextSize = sizes[currentIndex + 1];
+          resultContainer.innerHTML = `
+            <div class="warning">
+              ⚠️ <strong>Этот размер будет мал в области ${issues.join(', ')}.</strong><br>
+              Рекомендуем попробовать размер <strong>${nextSize || 'больше'}</strong>.
+            </div>
+          `;
+          canvas.style.display = 'none';
+          return;
+        }
+        drawAvatarWithClothing(height, chest, waist, hips, sizeData);
+      } else {
+        drawAvatarWithClothing(height, chest, waist, hips, null);
+      }
+
+      if (itemId) {
+        fetch('/api/analytics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            item_id: itemId,
+            height, chest, waist, hips,
+            weight: parseFloat(document.getElementById('weight').value) || 60,
+            tried_on: true
+          })
+        });
+      }
+    }
+
+    async function showStylistAdvice() {
+      if (!document.getElementById('photoConsent').checked) {
+        alert('Подтвердите согласие на обработку фото');
+        return;
+      }
+      let photoAnalysis = null;
+      if (userPhoto) {
+        photoAnalysis = analyzePhotoForStylist();
+      }
+      const height = document.getElementById('height').value || '170';
+      const chest = document.getElementById('chest').value || '86';
+      const waist = document.getElementById('waist').value || '68';
+      const hips = document.getElementById('hips').value || '92';
+      const productDesc = productData ? 'этот товар' : 'выбранная вещь';
+
+      const res = await fetch('/api/stylist-advice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          height, chest, waist, hips,
+          product_desc: productDesc,
+          photo_analysis: photoAnalysis
+        })
+      });
+      const html = await res.text();
+      document.getElementById('stylistAdvice').innerHTML = html;
+      document.getElementById('stylistAdvice').style.display = 'block';
+    }
+
+    setTimeout(() => {
+      userPhoto = null;
+      facePreview.style.display = 'none';
+    }, 30000);
+  </script>
+</body>
+</html>
